@@ -41,3 +41,20 @@ def create_client(data: ClientCreate, user: dict = Depends(get_current_user)):
     CLIENTS[email].append(new_client)
     client_id_counter += 1
     return new_client
+
+class ShareRequest(BaseModel):
+    psychiatrist_email: str
+
+@router.post("/{client_id}/share")
+def share_client(client_id: int, data: ShareRequest, user: dict = Depends(get_current_user)):
+    email = user["sub"]
+    # Find the client in therapist's list
+    therapist_clients = CLIENTS.get(email, [])
+    client = next((c for c in therapist_clients if c["id"] == client_id), None)
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    # Add to psychiatrist's list
+    if data.psychiatrist_email not in CLIENTS:
+        CLIENTS[data.psychiatrist_email] = []
+    CLIENTS[data.psychiatrist_email].append(client)
+    return {"message": f"Client shared with {data.psychiatrist_email}"}
