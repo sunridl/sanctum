@@ -13,11 +13,14 @@ router = APIRouter(prefix="/clients")
 SECRET_KEY = "sanctum-secret-do-not-share"
 ALGORITHM = "HS256"
 
-CLIENTS = {
-    "therapist@sanctum.com": [],
+CLIENTS: dict[str, list] = {
+    "therapist@sanctum.com": [
+        {"id": 1, "first_name": "Carol", "last_name": "Smith"},
+        {"id": 2, "first_name": "David", "last_name": "Jones"},
+    ],
     "psych@sanctum.com": [],
 }
-client_id_counter = 1
+client_id_counter = 3
 
 security = HTTPBearer()
 

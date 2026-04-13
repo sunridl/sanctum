@@ -9,8 +9,12 @@ SECRET_KEY = "sanctum-secret-do-not-share"
 ALGORITHM = "HS256"
 security = HTTPBearer()
 
-NOTES: dict[int, list] = {}  # client_id -> list of notes
-note_id_counter = 1
+NOTES: dict[int, list] = {
+    1: [
+        {"id": 1, "content": "Carol is making progress", "is_private": True, "author": "therapist@sanctum.com", "role": "therapist"},
+        {"id": 2, "content": "Carol approved for group therapy", "is_private": False, "author": "therapist@sanctum.com", "role": "therapist"},
+    ]
+}
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
