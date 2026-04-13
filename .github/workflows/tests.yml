@@ -1,0 +1,45 @@
+name: Sanctum Tests
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start backend
+        run: |
+          cd backend
+          docker build -t sanctum-backend .
+          docker run -d -p 8000:8000 sanctum-backend
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install frontend deps
+        run: |
+          cd frontend
+          npm install
+
+      - name: Start frontend
+        run: |
+          cd frontend
+          npm run dev &
+          sleep 3
+
+      - name: Install Playwright
+        run: |
+          cd tests
+          npm install
+          npx playwright install chromium --with-deps
+
+      - name: Run tests
+        run: |
+          cd tests
+          npx playwright test tests.spec.js
