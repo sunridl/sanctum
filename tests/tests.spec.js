@@ -1,40 +1,41 @@
 import { test, expect } from '@playwright/test'
+import { LoginPage } from './pages/LoginPage.js'
+import { DashboardPage } from './pages/DashboardPage.js'
 
 test('therapist can login and see clients', async ({ page }) => {
-  await page.goto('http://localhost:5173')
+  const loginPage = new LoginPage(page)
+  const dashboard = new DashboardPage(page)
 
-  await page.fill('input[type="email"]', 'therapist@sanctum.com')
-  await page.fill('input[type="password"]', 'secret123')
-  await page.click('button[type="submit"]')
+  await loginPage.goto()
+  await loginPage.loginAs('therapist@sanctum.com', 'secret123')
 
-  await expect(page.locator('strong')).toHaveText('therapist')
-  await expect(page.locator('ul')).toContainText('Carol')
-  await expect(page.locator('ul')).toContainText('David')
+  await expect(dashboard.roleLabel).toHaveText('therapist')
+  await expect(dashboard.clientList).toContainText('Carol')
+  await expect(dashboard.clientList).toContainText('David')
 
-  await page.click('button:has-text("Logout")')
-
-  await expect(page.locator('input[type="email"]')).toBeVisible()
+  await dashboard.logout()
+  await expect(loginPage.emailInput).toBeVisible()
 })
 
 test('login fails with wrong password', async ({ page }) => {
-  await page.goto('http://localhost:5173')
+  const loginPage = new LoginPage(page)
+  const dashboard = new DashboardPage(page)
 
-  await page.fill('input[type="email"]', 'therapist@sanctum.com')
-  await page.fill('input[type="password"]', 'wrongpassword')
-  await page.click('button[type="submit"]')
+  await loginPage.goto()
+  await loginPage.loginAs('therapist@sanctum.com', 'wrongpassword')
 
-  await expect(page.locator('input[type="email"]')).toBeVisible()
-  await expect(page.locator('strong')).not.toBeVisible()
+  await expect(loginPage.emailInput).toBeVisible()
+  await expect(dashboard.roleLabel).not.toBeVisible()
 })
 
 test('psychiatrist sees shared clients only', async ({ page }) => {
-  await page.goto('http://localhost:5173')
+  const loginPage = new LoginPage(page)
+  const dashboard = new DashboardPage(page)
 
-  await page.fill('input[type="email"]', 'psych@sanctum.com')
-  await page.fill('input[type="password"]', 'secret123')
-  await page.click('button[type="submit"]')
+  await loginPage.goto()
+  await loginPage.loginAs('psych@sanctum.com', 'secret123')
 
-  await expect(page.locator('strong')).toHaveText('psychiatrist')
-  await expect(page.locator('ul')).not.toContainText('Carol')
-  await expect(page.locator('ul')).not.toContainText('David')
+  await expect(dashboard.roleLabel).toHaveText('psychiatrist')
+  await expect(dashboard.clientList).not.toContainText('Carol')
+  await expect(dashboard.clientList).not.toContainText('David')
 })
