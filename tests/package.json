@@ -11,9 +11,9 @@
   "license": "ISC",
   "type": "commonjs",
   "devDependencies": {
-    "@playwright/test": "^1.59.1"
+    "@playwright/test": "^1.49.0"
   },
   "dependencies": {
-    "playwright": "^1.59.1"
+    "playwright": "^1.49.0"
   }
 }
