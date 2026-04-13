@@ -1,14 +1,21 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from auth import router as auth_router
 from clients import router as clients_router
 from notes import router as notes_router
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(auth_router)
 app.include_router(clients_router)
 app.include_router(notes_router)
-
 
 @app.get("/")
 def root():
