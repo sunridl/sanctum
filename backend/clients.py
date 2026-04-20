@@ -41,7 +41,7 @@ def create_client(data: ClientCreate, user: dict = Depends(get_current_user)):
     global client_id_counter
     email = user["sub"]
     new_client = {"id": client_id_counter, "first_name": data.first_name, "last_name": data.last_name}
-    CLIENTS[email].append(new_client)
+    CLIENTS.setdefault(email, []).append(new_client)
     client_id_counter += 1
     return new_client
 
@@ -61,3 +61,19 @@ def share_client(client_id: int, data: ShareRequest, user: dict = Depends(get_cu
         CLIENTS[data.psychiatrist_email] = []
     CLIENTS[data.psychiatrist_email].append(client)
     return {"message": f"Client shared with {data.psychiatrist_email}"}
+
+@router.delete("/{client_id}", status_code=204)
+def delete_client(client_id: int, user: dict = Depends(get_current_user)):
+    email = user["sub"]
+
+    # Only allow the owner (therapist) to delete
+    owner_list = CLIENTS.get(email, [])
+    client = next((c for c in owner_list if c["id"] == client_id), None)
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+
+    # Remove from every list (owner + anyone it was shared with)
+    for clients_list in CLIENTS.values():
+        clients_list[:] = [c for c in clients_list if c["id"] != client_id]
+
+    return None

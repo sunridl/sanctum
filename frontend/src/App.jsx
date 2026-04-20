@@ -16,11 +16,13 @@ function Dashboard({ token, role, onLogout }) {
       <h1>🖤 Sanctum</h1>
       <p>Welcome, <strong>{role}</strong> <button onClick={onLogout}>Logout</button></p>
       <h2>Clients</h2>
-      <ul>
-        {clients.map(c => (
-          <li key={c.id}>{c.first_name} {c.last_name}</li>
-        ))}
-      </ul>
+        <ul data-testid="client-list">
+          {clients.map(c => (
+    <     li key={c.id} data-testid="client-row" data-client-id={c.id}>
+            {c.first_name} {c.last_name}
+          </li>
+          ))}
+        </ul>
     </div>
   )
 }
