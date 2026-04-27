@@ -11,6 +11,11 @@ export default function ClientPage() {
   const [psychEmail, setPsychEmail] = useState('')
   const [shareError, setShareError] = useState('')
 
+  const [notes, setNotes] = useState([])
+  const [noteContent, setNoteContent] = useState('')
+  const [noteIsShared, setNoteIsShared] = useState(false)
+  const [noteError, setNoteError] = useState('')
+
   async function loadClient() {
     const r = await fetch('http://localhost:8000/clients/', {
       headers: { Authorization: `Bearer ${session.token}` },
@@ -26,9 +31,46 @@ export default function ClientPage() {
     setNotFound(false)
   }
 
+  async function loadNotes() {
+    const r = await fetch(`http://localhost:8000/clients/${clientId}/notes`, {
+      headers: { Authorization: `Bearer ${session.token}` },
+    })
+    if (!r.ok) {
+      setNotes([])
+      return
+    }
+    setNotes(await r.json())
+  }
+
   useEffect(() => {
     loadClient()
+    loadNotes()
   }, [clientId])
+
+  async function handleAddNote(e) {
+    e.preventDefault()
+    setNoteError('')
+    if (!noteContent.trim()) return
+    // The UI toggle expresses "shared" (the exception); the data model
+    // expresses "is_private" (the default). Psychiatrists can't create
+    // private notes at all, so we hardcode is_private=false for them.
+    const isPrivate = isTherapist ? !noteIsShared : false
+    const r = await fetch(`http://localhost:8000/clients/${clientId}/notes`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ content: noteContent, is_private: isPrivate }),
+    })
+    if (!r.ok) {
+      setNoteError('Could not save note — please try again')
+      return
+    }
+    setNoteContent('')
+    setNoteIsShared(false)
+    await loadNotes()
+  }
 
   async function handleShare(e) {
     e.preventDefault()
@@ -132,9 +174,94 @@ export default function ClientPage() {
         </section>
       )}
 
-      <section style={{ marginTop: 32 }}>
+      <section style={{ marginTop: 32 }} data-testid="notes-section">
         <h2>Notes</h2>
-        <p style={{ color: '#666' }}>(Notes UI coming next.)</p>
+
+        <ul data-testid="notes-list" style={{ listStyle: 'none', padding: 0 }}>
+          {[...notes].reverse().map(n => (
+            <li
+              key={n.id}
+              data-testid="note-row"
+              data-note-id={n.id}
+              style={{
+                border: '1px solid #ddd',
+                borderRadius: 6,
+                padding: 12,
+                marginBottom: 8,
+              }}
+            >
+              <p data-testid="note-content" style={{ margin: '0 0 8px 0' }}>
+                {n.content}
+              </p>
+              <small style={{ color: '#666' }}>
+                {n.author_first_name && n.author_last_name ? (
+                  <>
+                    <span data-testid="note-author-name">
+                      {n.author_first_name} {n.author_last_name}
+                    </span>
+                    {' '}(
+                    <span data-testid="note-role">{n.role}</span>
+                    , <span data-testid="note-author-email">{n.author}</span>)
+                  </>
+                ) : (
+                  <>
+                    <span data-testid="note-author-email">{n.author}</span>
+                    {' '}(<span data-testid="note-role">{n.role}</span>)
+                  </>
+                )}
+              </small>
+              {isTherapist && !n.is_private && (
+                <span
+                  data-testid="note-shared-badge"
+                  style={{
+                    marginLeft: 8,
+                    padding: '2px 6px',
+                    background: '#d1ecf1',
+                    border: '1px solid #bee5eb',
+                    borderRadius: 4,
+                    fontSize: '0.8em',
+                  }}
+                >
+                  shared
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+
+        <form onSubmit={handleAddNote} data-testid="add-note-form" style={{ marginTop: 16 }}>
+          <textarea
+            data-testid="add-note-content"
+            placeholder="Write a note…"
+            value={noteContent}
+            onChange={e => setNoteContent(e.target.value)}
+            rows={3}
+            style={{ width: '100%', padding: 8, marginBottom: 8 }}
+          />
+          {isTherapist && (
+            <label
+              data-testid="add-note-shared-label"
+              style={{ display: 'block', marginBottom: 8 }}
+            >
+              <input
+                data-testid="add-note-shared-toggle"
+                type="checkbox"
+                checked={noteIsShared}
+                onChange={e => setNoteIsShared(e.target.checked)}
+              />{' '}
+              Shared (visible to psychiatrist)
+            </label>
+          )}
+          <button data-testid="add-note-submit" type="submit" style={{ padding: 8 }}>
+            Add note
+          </button>
+        </form>
+
+        {noteError && (
+          <p data-testid="note-error" style={{ color: '#b00020', marginTop: 12 }}>
+            {noteError}
+          </p>
+        )}
       </section>
     </div>
   )

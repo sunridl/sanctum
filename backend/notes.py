@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from jose import jwt, JWTError
+from auth import USERS
 from clients import CLIENTS
 
 router = APIRouter(prefix="/clients")
@@ -45,6 +46,14 @@ def create_note(client_id: int, data: NoteCreate, user: dict = Depends(get_curre
     global note_id_counter
     if not _user_owns_client(user, client_id):
         raise HTTPException(status_code=404, detail="Client not found")
+
+    # Private notes are a therapist-only concept — psychiatrists can't see them
+    # (the GET endpoint filters them out), so they shouldn't be able to create
+    # them either. 404 (not 403) keeps role boundaries opaque to ID-probing
+    # attackers, matching the codebase's anti-enumeration convention.
+    if data.is_private and user["role"] != "therapist":
+        raise HTTPException(status_code=404, detail="Client not found")
+
     note = {
         "id": note_id_counter,
         "content": data.content,
@@ -64,4 +73,16 @@ def get_notes(client_id: int, user: dict = Depends(get_current_user)):
     notes = NOTES.get(client_id, [])
     if user["role"] == "psychiatrist":
         notes = [n for n in notes if not n["is_private"]]
-    return notes
+    # Enrich each note with the author's display name. Looked up at read
+    # time rather than stamped at write time — for a clinical app, the
+    # audit-log-correct choice is denormalize-on-write so name changes
+    # don't rewrite history. Acceptable here because the demo has no
+    # name-change feature; flagging for a future migration.
+    return [
+        {
+            **note,
+            "author_first_name": USERS.get(note["author"], {}).get("first_name", ""),
+            "author_last_name": USERS.get(note["author"], {}).get("last_name", ""),
+        }
+        for note in notes
+    ]

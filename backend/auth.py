@@ -107,6 +107,8 @@ class CreateUserRequest(BaseModel):
     email: str
     password: str
     role: str  # "therapist" or "psychiatrist"
+    first_name: str = ""
+    last_name: str = ""
 
 
 @router.post("/users", status_code=201)
@@ -116,8 +118,8 @@ def create_user(data: CreateUserRequest):
     USERS[data.email] = {
         "password": pwd_context.hash(data.password),
         "role": data.role,
-        "first_name": "",
-        "last_name": "",
+        "first_name": data.first_name,
+        "last_name": data.last_name,
     }
     return {"email": data.email, "role": data.role}
 

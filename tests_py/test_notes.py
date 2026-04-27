@@ -1,0 +1,57 @@
+"""API tests for the notes endpoints.
+
+Note creation, listing, and the role-based filter for private notes are
+already covered indirectly by the IDOR negative tests in test_smoke.py.
+This file owns invariants specific to the notes domain that aren't
+authorization-cross-tenant in nature.
+"""
+
+import httpx
+
+from conftest import BASE_URL, login_and_get_token
+
+
+def test_psychiatrist_cannot_create_private_note(client_shared_with_psych):
+    """Private notes are therapist-only by design — the GET endpoint hides
+    them from psychiatrists. The POST endpoint must reject the same role
+    from creating them, otherwise the invariant can be broken via direct
+    API calls (defense in depth against the UI hiding the toggle).
+
+    The endpoint returns 404 (not 403) to match the codebase's anti-
+    enumeration convention.
+    """
+    psych = client_shared_with_psych["psychiatrist"]
+    client = client_shared_with_psych["client"]
+
+    psych_token = login_and_get_token(psych["email"], psych["password"])
+    headers = {"Authorization": f"Bearer {psych_token}"}
+
+    response = httpx.post(
+        f"{BASE_URL}/clients/{client['id']}/notes",
+        json={"content": "secret psychiatrist note", "is_private": True},
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+
+
+def test_psychiatrist_can_create_public_note(client_shared_with_psych):
+    """Sanity check on the rejection above — a psychiatrist can still
+    create non-private notes on a shared client. Without this, a regression
+    that rejected ALL psychiatrist note creation would still pass the test
+    above, which would be a false sense of safety."""
+    psych = client_shared_with_psych["psychiatrist"]
+    client = client_shared_with_psych["client"]
+
+    psych_token = login_and_get_token(psych["email"], psych["password"])
+    headers = {"Authorization": f"Bearer {psych_token}"}
+
+    response = httpx.post(
+        f"{BASE_URL}/clients/{client['id']}/notes",
+        json={"content": "public observation", "is_private": False},
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+    assert response.json()["is_private"] is False
+    assert response.json()["role"] == "psychiatrist"

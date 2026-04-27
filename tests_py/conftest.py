@@ -30,11 +30,23 @@ def psychiatrist_user():
 
     response = httpx.post(
         f"{BASE_URL}/auth/users",
-        json={"email": email, "password": password, "role": "psychiatrist"},
+        json={
+            "email": email,
+            "password": password,
+            "role": "psychiatrist",
+            "first_name": "Pat",
+            "last_name": "TestPsych",
+        },
     )
     response.raise_for_status()
 
-    user = {"email": email, "password": password, "role": "psychiatrist"}
+    user = {
+        "email": email,
+        "password": password,
+        "role": "psychiatrist",
+        "first_name": "Pat",
+        "last_name": "TestPsych",
+    }
     yield user
 
     httpx.delete(f"{BASE_URL}/auth/users/{email}")
@@ -47,11 +59,23 @@ def therapist_user():
 
     response = httpx.post(
         f"{BASE_URL}/auth/users",
-        json={"email": email, "password": password, "role": "therapist"},
+        json={
+            "email": email,
+            "password": password,
+            "role": "therapist",
+            "first_name": "Sarah",
+            "last_name": "TestTherapist",
+        },
     )
     response.raise_for_status()
 
-    user = {"email": email, "password": password, "role": "therapist"}
+    user = {
+        "email": email,
+        "password": password,
+        "role": "therapist",
+        "first_name": "Sarah",
+        "last_name": "TestTherapist",
+    }
     yield user
 
     httpx.delete(f"{BASE_URL}/auth/users/{email}")
@@ -66,11 +90,23 @@ def second_therapist_user():
 
     response = httpx.post(
         f"{BASE_URL}/auth/users",
-        json={"email": email, "password": password, "role": "therapist"},
+        json={
+            "email": email,
+            "password": password,
+            "role": "therapist",
+            "first_name": "Maria",
+            "last_name": "TestSecond",
+        },
     )
     response.raise_for_status()
 
-    user = {"email": email, "password": password, "role": "therapist"}
+    user = {
+        "email": email,
+        "password": password,
+        "role": "therapist",
+        "first_name": "Maria",
+        "last_name": "TestSecond",
+    }
     yield user
 
     httpx.delete(f"{BASE_URL}/auth/users/{email}")
