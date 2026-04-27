@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from pydantic import BaseModel
+from auth import USERS
 
 class ClientCreate(BaseModel):
     first_name: str
@@ -51,15 +52,19 @@ class ShareRequest(BaseModel):
 @router.post("/{client_id}/share")
 def share_client(client_id: int, data: ShareRequest, user: dict = Depends(get_current_user)):
     email = user["sub"]
+
+    # Validate target is a real registered psychiatrist
+    target = USERS.get(data.psychiatrist_email)
+    if not target or target["role"] != "psychiatrist":
+        raise HTTPException(status_code=404, detail="Psychiatrist not found")
+
     # Find the client in therapist's list
     therapist_clients = CLIENTS.get(email, [])
     client = next((c for c in therapist_clients if c["id"] == client_id), None)
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-    # Add to psychiatrist's list
-    if data.psychiatrist_email not in CLIENTS:
-        CLIENTS[data.psychiatrist_email] = []
-    CLIENTS[data.psychiatrist_email].append(client)
+
+    CLIENTS.setdefault(data.psychiatrist_email, []).append(client)
     return {"message": f"Client shared with {data.psychiatrist_email}"}
 
 @router.delete("/{client_id}", status_code=204)
