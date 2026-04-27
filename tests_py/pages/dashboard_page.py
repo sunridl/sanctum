@@ -6,6 +6,7 @@ class DashboardPage:
     def __init__(self, page: Page):
         self.page = page
         self.role_label = page.get_by_test_id("role-label")
+        self.user_name = page.get_by_test_id("user-name")
         self.client_list = page.get_by_test_id("client-list")
         self.logout_button = page.get_by_role("button", name="Logout")
 

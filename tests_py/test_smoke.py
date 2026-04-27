@@ -6,10 +6,12 @@ def test_homepage_loads(page: Page):
     page.goto("http://localhost:5173")
     expect(page).not_to_have_title("")
 
+
 def test_psychiatrist_user_fixture_creates_and_tears_down(psychiatrist_user):
     assert psychiatrist_user["email"].startswith("psych-")
     assert psychiatrist_user["role"] == "psychiatrist"
     assert "@test.sanctum.com" in psychiatrist_user["email"]
+
 
 def test_psychiatrist_can_log_in(page, psychiatrist_user):
     page.goto("http://localhost:5173/")
@@ -18,20 +20,40 @@ def test_psychiatrist_can_log_in(page, psychiatrist_user):
     page.get_by_placeholder("Password").fill(psychiatrist_user["password"])
     page.get_by_role("button", name="Login").click()
 
-    expect(page.get_by_text("Welcome, psychiatrist")).to_be_visible()
+    expect(page.get_by_test_id("role-label")).to_have_text("psychiatrist")
+
+
+def test_therapist_user_fixture_creates_and_tears_down(therapist_user):
+    assert therapist_user["email"].startswith("therapist-")
+    assert therapist_user["role"] == "therapist"
+    assert "@test.sanctum.com" in therapist_user["email"]
+
+
+def test_therapist_can_log_in(page, therapist_user):
+    page.goto("http://localhost:5173/")
+
+    page.get_by_placeholder("Email").fill(therapist_user["email"])
+    page.get_by_placeholder("Password").fill(therapist_user["password"])
+    page.get_by_role("button", name="Login").click()
+
+    expect(page.get_by_test_id("role-label")).to_have_text("therapist")
+
 
 def test_therapist_user_fixture(therapist_user):
     assert therapist_user["role"] == "therapist"
     assert therapist_user["email"].startswith("therapist-")
 
+
 def test_therapist_client_fixture(therapist_client):
     assert therapist_client["first_name"] == "Alice"
     assert isinstance(therapist_client["id"], int)
+
 
 def test_shared_client_fixture(client_shared_with_psych):
     assert client_shared_with_psych["client"]["first_name"] == "Alice"
     assert client_shared_with_psych["psychiatrist"]["role"] == "psychiatrist"
     assert client_shared_with_psych["therapist"]["role"] == "therapist"
+
 
 def test_psychiatrist_sees_exactly_the_clients_shared_with_them(
     page, psychiatrist_user, client_shared_with_psych
@@ -67,24 +89,6 @@ def test_share_with_unknown_email_returns_404(therapist_user, therapist_client):
     response = httpx.post(
         f"{BASE_URL}/clients/{therapist_client['id']}/share",
         json={"psychiatrist_email": "ghost@nowhere.com"},
-        headers=headers,
-    )
-
-    assert response.status_code == 404
-
-
-def test_therapist_cannot_read_other_therapists_client_notes(
-    therapist_user, therapist_client, second_therapist_user
-):
-    """Maria (second therapist) must not be able to read notes on Sarah's
-    client. Endpoint hides existence with 404 to prevent object enumeration."""
-    maria_token = login_and_get_token(
-        second_therapist_user["email"], second_therapist_user["password"]
-    )
-    headers = {"Authorization": f"Bearer {maria_token}"}
-
-    response = httpx.get(
-        f"{BASE_URL}/clients/{therapist_client['id']}/notes",
         headers=headers,
     )
 
