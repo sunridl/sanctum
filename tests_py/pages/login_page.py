@@ -25,10 +25,16 @@ class LoginPage:
     def goto(self):
         self.page.goto(self.URL)
 
-    def login_as(self, email: str, password: str):
+    def login_as(self, email: str, password: str, *, expect_success: bool = True):
+        """Submit the login form. By default waits for the post-login redirect
+        to /dashboard so callers can immediately navigate to deep URLs without
+        racing the sessionStorage write. Pass `expect_success=False` for tests
+        that assert login *fails* and stays on /."""
         self.email_input.fill(email)
         self.password_input.fill(password)
         self.submit_button.click()
+        if expect_success:
+            self.page.wait_for_url("**/dashboard")
 
     def open_signup(self):
         self.show_signup_button.click()

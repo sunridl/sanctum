@@ -25,7 +25,7 @@ def test_login_fails_with_wrong_password(page: Page, therapist_user):
     dashboard = DashboardPage(page)
 
     login_page.goto()
-    login_page.login_as(therapist_user["email"], "this-is-not-the-password")
+    login_page.login_as(therapist_user["email"], "this-is-not-the-password", expect_success=False)
 
     expect(login_page.email_input).to_be_visible()
     expect(dashboard.role_label).not_to_be_visible()
