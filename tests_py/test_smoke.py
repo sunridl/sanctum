@@ -1,5 +1,6 @@
 from playwright.sync_api import Page, expect
-
+import httpx
+from conftest import login_and_get_token, BASE_URL
 
 def test_homepage_loads(page: Page):
     page.goto("http://localhost:5173")
@@ -55,3 +56,92 @@ def test_psychiatrist_sees_exactly_the_clients_shared_with_them(
         f"Expected psychiatrist to see exactly [{expected_client_id}], "
         f"but saw {visible_ids}"
     )
+
+
+def test_share_with_unknown_email_returns_404(therapist_user, therapist_client):
+    """Sharing with an email that isn't a registered psychiatrist must fail
+    cleanly with 404 — not silently succeed."""
+    token = login_and_get_token(therapist_user["email"], therapist_user["password"])
+    headers = {"Authorization": f"Bearer {token}"}
+
+    response = httpx.post(
+        f"{BASE_URL}/clients/{therapist_client['id']}/share",
+        json={"psychiatrist_email": "ghost@nowhere.com"},
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+
+
+def test_therapist_cannot_read_other_therapists_client_notes(
+    therapist_user, therapist_client, second_therapist_user
+):
+    """Maria (second therapist) must not be able to read notes on Sarah's
+    client. Endpoint hides existence with 404 to prevent object enumeration."""
+    maria_token = login_and_get_token(
+        second_therapist_user["email"], second_therapist_user["password"]
+    )
+    headers = {"Authorization": f"Bearer {maria_token}"}
+
+    response = httpx.get(
+        f"{BASE_URL}/clients/{therapist_client['id']}/notes",
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+
+
+def test_therapist_cannot_read_other_therapists_client_notes(
+    therapist_user, therapist_client, second_therapist_user
+):
+    """Maria (second therapist) must not be able to read notes on Sarah's
+    client. Endpoint hides existence with 404 to prevent object enumeration."""
+    maria_token = login_and_get_token(
+        second_therapist_user["email"], second_therapist_user["password"]
+    )
+    headers = {"Authorization": f"Bearer {maria_token}"}
+
+    response = httpx.get(
+        f"{BASE_URL}/clients/{therapist_client['id']}/notes",
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+
+
+def test_therapist_cannot_create_notes_on_other_therapists_client(
+    therapist_user, therapist_client, second_therapist_user
+):
+    """Maria (second therapist) must not be able to create notes on Sarah's
+    client. Endpoint hides existence with 404 to prevent object enumeration."""
+    maria_token = login_and_get_token(
+        second_therapist_user["email"], second_therapist_user["password"]
+    )
+    headers = {"Authorization": f"Bearer {maria_token}"}
+
+    response = httpx.post(
+        f"{BASE_URL}/clients/{therapist_client['id']}/notes",
+        json={"content": "Second therapist's sneaky note", "is_private": True},
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+
+
+def test_therapist_cannot_share_other_therapists_client(
+    therapist_user, therapist_client, second_therapist_user, psychiatrist_user
+):
+    """Maria must not be able to share Sarah's client, even with a real
+    psychiatrist. Endpoint must hide existence with 404."""
+    maria_token = login_and_get_token(
+        second_therapist_user["email"], second_therapist_user["password"]
+    )
+    headers = {"Authorization": f"Bearer {maria_token}"}
+
+    response = httpx.post(
+        f"{BASE_URL}/clients/{therapist_client['id']}/share",
+        json={"psychiatrist_email": psychiatrist_user["email"]},
+        headers=headers,
+    )
+
+    assert response.status_code == 404

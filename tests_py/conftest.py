@@ -57,6 +57,25 @@ def therapist_user():
     httpx.delete(f"{BASE_URL}/auth/users/{email}")
 
 
+@pytest.fixture
+def second_therapist_user():
+    """A second, unrelated therapist — used to verify that one therapist
+    cannot access another therapist's clients or notes."""
+    email = f"therapist2-{uuid.uuid4().hex[:8]}@test.sanctum.com"
+    password = "secret123"
+
+    response = httpx.post(
+        f"{BASE_URL}/auth/users",
+        json={"email": email, "password": password, "role": "therapist"},
+    )
+    response.raise_for_status()
+
+    user = {"email": email, "password": password, "role": "therapist"}
+    yield user
+
+    httpx.delete(f"{BASE_URL}/auth/users/{email}")
+
+
 # ---------------------------------------------------------------------------
 # Client fixtures
 # ---------------------------------------------------------------------------
