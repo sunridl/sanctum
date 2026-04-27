@@ -9,6 +9,7 @@ export default function ClientPage() {
   const [client, setClient] = useState(null)
   const [notFound, setNotFound] = useState(false)
   const [psychEmail, setPsychEmail] = useState('')
+  const [pendingPsych, setPendingPsych] = useState(null) // { email, first_name, last_name } awaiting confirm
   const [shareError, setShareError] = useState('')
 
   const [notes, setNotes] = useState([])
@@ -72,26 +73,44 @@ export default function ClientPage() {
     await loadNotes()
   }
 
-  async function handleShare(e) {
+  async function handleLookup(e) {
     e.preventDefault()
     setShareError('')
     if (!psychEmail.trim()) return
+    const r = await fetch(
+      `http://localhost:8000/auth/psychiatrists/${encodeURIComponent(psychEmail)}`,
+      { headers: { Authorization: `Bearer ${session.token}` } },
+    )
+    if (!r.ok) {
+      setShareError('No psychiatrist registered with that email')
+      return
+    }
+    setPendingPsych(await r.json())
+  }
+
+  async function handleConfirmShare() {
+    setShareError('')
     const r = await fetch(`http://localhost:8000/clients/${clientId}/share`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${session.token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ psychiatrist_email: psychEmail }),
+      body: JSON.stringify({ psychiatrist_email: pendingPsych.email }),
     })
     if (!r.ok) {
-      if (r.status === 404) setShareError('No psychiatrist registered with that email')
-      else if (r.status === 409) setShareError('This client is already shared')
+      if (r.status === 409) setShareError('This client is already shared')
       else setShareError('Could not share — please try again')
       return
     }
     setPsychEmail('')
+    setPendingPsych(null)
     await loadClient()
+  }
+
+  function handleCancelShare() {
+    setPendingPsych(null)
+    setShareError('')
   }
 
   async function handleUnshare() {
@@ -144,14 +163,43 @@ export default function ClientPage() {
             <div data-testid="shared-with-block">
               <p>
                 Shared with{' '}
-                <strong data-testid="shared-with-email">{client.shared_with}</strong>
+                <strong data-testid="shared-with-name">
+                  {client.shared_with.first_name} {client.shared_with.last_name}
+                </strong>{' '}
+                (<span data-testid="shared-with-email">{client.shared_with.email}</span>)
               </p>
               <button data-testid="unshare-button" type="button" onClick={handleUnshare}>
                 Unshare
               </button>
             </div>
+          ) : pendingPsych ? (
+            <div data-testid="share-confirm-block">
+              <p>
+                Do you want to share with{' '}
+                <strong data-testid="share-confirm-name">
+                  {pendingPsych.first_name} {pendingPsych.last_name}
+                </strong>{' '}
+                (<span data-testid="share-confirm-email">{pendingPsych.email}</span>)?
+              </p>
+              <button
+                data-testid="share-confirm-submit"
+                type="button"
+                onClick={handleConfirmShare}
+                style={{ padding: 8, marginRight: 8 }}
+              >
+                Confirm
+              </button>
+              <button
+                data-testid="share-confirm-cancel"
+                type="button"
+                onClick={handleCancelShare}
+                style={{ padding: 8 }}
+              >
+                Cancel
+              </button>
+            </div>
           ) : (
-            <form onSubmit={handleShare} data-testid="share-form">
+            <form onSubmit={handleLookup} data-testid="share-form">
               <input
                 data-testid="share-email"
                 type="email"

@@ -32,10 +32,30 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+def _enrich_shared_with(client: dict) -> dict:
+    """Expand shared_with from a bare email string into an object the
+    frontend can render directly: {email, first_name, last_name}.
+    Storage stays normalized (one email per client); the join happens at
+    read time. Falls back to empty name fields if the psychiatrist user
+    record is missing — defensive against deleted users."""
+    psych_email = client.get("shared_with")
+    if not psych_email:
+        return {**client, "shared_with": None}
+    psych = USERS.get(psych_email, {})
+    return {
+        **client,
+        "shared_with": {
+            "email": psych_email,
+            "first_name": psych.get("first_name", ""),
+            "last_name": psych.get("last_name", ""),
+        },
+    }
+
+
 @router.get("/")
 def get_clients(user: dict = Depends(get_current_user)):
     email = user["sub"]
-    return CLIENTS.get(email, [])
+    return [_enrich_shared_with(c) for c in CLIENTS.get(email, [])]
 
 @router.post("/")
 def create_client(data: ClientCreate, user: dict = Depends(get_current_user)):

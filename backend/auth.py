@@ -1,7 +1,8 @@
 from enum import Enum
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, EmailStr, Field
-from jose import jwt
+from jose import jwt, JWTError
 from datetime import datetime, timedelta
 from passlib.context import CryptContext
 
@@ -93,6 +94,40 @@ def signup(data: SignupRequest):
         "role": data.role.value,
         "first_name": data.first_name,
         "last_name": data.last_name,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Psychiatrist lookup — used by the share-confirmation flow on the frontend
+# ---------------------------------------------------------------------------
+# Therapist-only by design: only therapists need to look up psychiatrists
+# (they're the ones who share clients), and limiting access keeps the
+# email-probe surface narrow. 404 (not 403) for non-psychiatrist or
+# unknown emails matches the codebase's anti-enumeration convention.
+
+security = HTTPBearer()
+
+
+def _decode_token(creds: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        return jwt.decode(creds.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+@router.get("/psychiatrists/{email}")
+def lookup_psychiatrist(email: str, user: dict = Depends(_decode_token)):
+    if user.get("role") != "therapist":
+        raise HTTPException(status_code=404, detail="Psychiatrist not found")
+
+    target = USERS.get(email)
+    if not target or target["role"] != "psychiatrist":
+        raise HTTPException(status_code=404, detail="Psychiatrist not found")
+
+    return {
+        "email": email,
+        "first_name": target.get("first_name", ""),
+        "last_name": target.get("last_name", ""),
     }
 
 

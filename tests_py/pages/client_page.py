@@ -20,8 +20,16 @@ class ClientPage:
         self.share_submit = page.get_by_test_id("share-submit")
         self.share_error = page.get_by_test_id("share-error")
 
+        # Confirmation state — between lookup and the actual share
+        self.share_confirm_block = page.get_by_test_id("share-confirm-block")
+        self.share_confirm_name = page.get_by_test_id("share-confirm-name")
+        self.share_confirm_email = page.get_by_test_id("share-confirm-email")
+        self.share_confirm_submit = page.get_by_test_id("share-confirm-submit")
+        self.share_confirm_cancel = page.get_by_test_id("share-confirm-cancel")
+
         # Shared-state UI
         self.shared_with_block = page.get_by_test_id("shared-with-block")
+        self.shared_with_name = page.get_by_test_id("shared-with-name")
         self.shared_with_email = page.get_by_test_id("shared-with-email")
         self.unshare_button = page.get_by_test_id("unshare-button")
 
@@ -42,9 +50,25 @@ class ClientPage:
     def goto(self, client_id: int):
         self.page.goto(self.url_for(client_id))
 
-    def share_with(self, psychiatrist_email: str):
+    def start_share(self, psychiatrist_email: str):
+        """Submit the email — opens the confirmation panel if the lookup
+        succeeds, or surfaces an error if not. Doesn't share yet."""
         self.share_email.fill(psychiatrist_email)
         self.share_submit.click()
+
+    def confirm_share(self):
+        """Click Confirm on the open confirmation panel — actually shares."""
+        self.share_confirm_submit.click()
+
+    def cancel_share(self):
+        self.share_confirm_cancel.click()
+
+    def share_with(self, psychiatrist_email: str):
+        """Convenience: full share flow from email entry to confirmation,
+        for tests that only care about the end state. Tests asserting on
+        the confirmation panel itself should use start_share / confirm_share."""
+        self.start_share(psychiatrist_email)
+        self.confirm_share()
 
     def unshare(self):
         self.unshare_button.click()

@@ -40,7 +40,10 @@ def test_share_sets_shared_with_field(therapist_user, therapist_client, psychiat
 
     listing = httpx.get(f"{BASE_URL}/clients/", headers=headers).json()
     client = next(c for c in listing if c["id"] == therapist_client["id"])
-    assert client["shared_with"] == psychiatrist_user["email"]
+    # shared_with is now an object: {email, first_name, last_name}
+    assert client["shared_with"]["email"] == psychiatrist_user["email"]
+    assert client["shared_with"]["first_name"] == psychiatrist_user["first_name"]
+    assert client["shared_with"]["last_name"] == psychiatrist_user["last_name"]
 
 
 def test_share_when_already_shared_returns_409(
@@ -120,3 +123,69 @@ def test_unshare_on_other_therapists_client_returns_404(
         f"{BASE_URL}/clients/{therapist_client['id']}/share", headers=headers
     )
     assert response.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# Psychiatrist lookup — used by the share-confirmation step
+# ---------------------------------------------------------------------------
+
+def test_lookup_psychiatrist_returns_name_for_therapist(
+    therapist_user, psychiatrist_user
+):
+    """A therapist looking up a real psychiatrist must get their name back —
+    that's what the confirmation dialog renders. Without this, a typo'd
+    email shows the same confirmation as a correct one."""
+    headers = _therapist_headers(therapist_user)
+    response = httpx.get(
+        f"{BASE_URL}/auth/psychiatrists/{psychiatrist_user['email']}",
+        headers=headers,
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["email"] == psychiatrist_user["email"]
+    assert body["first_name"] == psychiatrist_user["first_name"]
+    assert body["last_name"] == psychiatrist_user["last_name"]
+
+
+def test_lookup_unknown_email_returns_404(therapist_user):
+    headers = _therapist_headers(therapist_user)
+    response = httpx.get(
+        f"{BASE_URL}/auth/psychiatrists/ghost-no-such-user@nowhere.example",
+        headers=headers,
+    )
+    assert response.status_code == 404
+
+
+def test_lookup_therapist_email_returns_404(therapist_user, second_therapist_user):
+    """Looking up another therapist must return 404 — same shape as an
+    unknown email. This prevents using the lookup endpoint to harvest
+    therapist accounts by probing role membership."""
+    headers = _therapist_headers(therapist_user)
+    response = httpx.get(
+        f"{BASE_URL}/auth/psychiatrists/{second_therapist_user['email']}",
+        headers=headers,
+    )
+    assert response.status_code == 404
+
+
+def test_lookup_as_psychiatrist_returns_404(psychiatrist_user):
+    """A psychiatrist hitting the lookup endpoint gets 404 — they don't
+    need it (only therapists share clients), and 404 keeps the role-check
+    indistinguishable from a normal not-found response."""
+    psych_token = login_and_get_token(
+        psychiatrist_user["email"], psychiatrist_user["password"]
+    )
+    headers = {"Authorization": f"Bearer {psych_token}"}
+    response = httpx.get(
+        f"{BASE_URL}/auth/psychiatrists/{psychiatrist_user['email']}",
+        headers=headers,
+    )
+    assert response.status_code == 404
+
+
+def test_lookup_unauthenticated_returns_401():
+    response = httpx.get(
+        f"{BASE_URL}/auth/psychiatrists/anyone@example.com",
+    )
+    # No bearer token — auth dependency rejects before role check
+    assert response.status_code in (401, 403)
