@@ -26,11 +26,17 @@ client_id_counter = 3
 security = HTTPBearer()
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    # NOTE: this auth dependency is duplicated in notes.py and auth.py
+    # (_decode_token). Future refactor: extract into a shared module.
     try:
         payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
+    # Reject tokens whose subject no longer exists — handles the case where
+    # a user account was deleted while a valid JWT was still in flight.
+    if not USERS.get(payload.get("sub")):
+        raise HTTPException(status_code=401, detail="User no longer exists")
+    return payload
 
 def _enrich_shared_with(client: dict) -> dict:
     """Expand shared_with from a bare email string into an object the
@@ -59,6 +65,12 @@ def get_clients(user: dict = Depends(get_current_user)):
 
 @router.post("/")
 def create_client(data: ClientCreate, user: dict = Depends(get_current_user)):
+    # Therapist-only: clients are a therapist concept. A psychiatrist-
+    # created client could never be shared, viewed, or annotated by
+    # anyone else — a domain-incoherent record. 404 hides the role gate.
+    if user["role"] != "therapist":
+        raise HTTPException(status_code=404, detail="Client not found")
+
     global client_id_counter
     email = user["sub"]
     new_client = {
@@ -76,6 +88,14 @@ class ShareRequest(BaseModel):
 
 @router.post("/{client_id}/share")
 def share_client(client_id: int, data: ShareRequest, user: dict = Depends(get_current_user)):
+    # Therapist-only: only the client owner may initiate a share. Without
+    # this guard, a psychiatrist with a shared client could try to forward-
+    # share it; the request would still fail (409 from the existing-share
+    # check), but 409 leaks "you have access to this client" — defense in
+    # depth says reject earlier with 404.
+    if user["role"] != "therapist":
+        raise HTTPException(status_code=404, detail="Client not found")
+
     email = user["sub"]
 
     # Validate target is a real registered psychiatrist
@@ -105,6 +125,13 @@ def share_client(client_id: int, data: ShareRequest, user: dict = Depends(get_cu
 
 @router.delete("/{client_id}/share", status_code=204)
 def unshare_client(client_id: int, user: dict = Depends(get_current_user)):
+    # Therapist-only: only the share originator may dissolve the share.
+    # Without this guard, a psychiatrist could clear shared_with on their
+    # own access, which silently mutates the therapist's view of the
+    # client. Sharing is initiated by the therapist; revocation is too.
+    if user["role"] != "therapist":
+        raise HTTPException(status_code=404, detail="Client not found")
+
     email = user["sub"]
 
     # Owner check — prevents IDOR (mirrors share_client). Foreign clients
@@ -125,9 +152,14 @@ def unshare_client(client_id: int, user: dict = Depends(get_current_user)):
 
 @router.delete("/{client_id}", status_code=204)
 def delete_client(client_id: int, user: dict = Depends(get_current_user)):
-    email = user["sub"]
+    # Therapist-only: psychiatrists access shared clients read-only.
+    # Without this guard, a psychiatrist with a shared client could DELETE
+    # the underlying record (the cascade-removal would wipe the original
+    # from the therapist's list too — read access leaking into delete).
+    if user["role"] != "therapist":
+        raise HTTPException(status_code=404, detail="Client not found")
 
-    # Only allow the owner (therapist) to delete
+    email = user["sub"]
     owner_list = CLIENTS.get(email, [])
     client = next((c for c in owner_list if c["id"] == client_id), None)
     if not client:

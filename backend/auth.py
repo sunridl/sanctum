@@ -109,10 +109,14 @@ security = HTTPBearer()
 
 
 def _decode_token(creds: HTTPAuthorizationCredentials = Depends(security)):
+    # NOTE: duplicated with clients.py / notes.py — refactor candidate.
     try:
-        return jwt.decode(creds.credentials, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(creds.credentials, SECRET_KEY, algorithms=[ALGORITHM])
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
+    if not USERS.get(payload.get("sub")):
+        raise HTTPException(status_code=401, detail="User no longer exists")
+    return payload
 
 
 @router.get("/psychiatrists/{email}")
@@ -160,8 +164,48 @@ def create_user(data: CreateUserRequest):
 
 
 @router.delete("/users/{email}", status_code=204)
-def delete_user(email: str):
-    if email not in USERS:
+def delete_user(email: str, caller: dict = Depends(_decode_token)):
+    # Self-delete only: a user may only delete their own account. Without
+    # this check, the endpoint was open to anyone with a curl command —
+    # an unauthenticated attacker could wipe accounts at will.
+    # 404 (not 403) hides the role/identity boundary, matching the
+    # codebase's anti-enumeration convention.
+    if caller.get("sub") != email:
         raise HTTPException(status_code=404, detail="User not found")
+
+    user = USERS.get(email)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Cascade-clean the share graph so no orphaned references remain.
+    # Lazy import: clients.py imports USERS from this module, so a top-level
+    # `from clients import CLIENTS` would create a circular import.
+    # TODO: a future refactor could move CLIENTS to a shared state module.
+    from clients import CLIENTS
+
+    if user["role"] == "psychiatrist":
+        # Any therapist's client that was shared with this psychiatrist
+        # must have its shared_with field cleared.
+        for owner_email, client_list in CLIENTS.items():
+            if owner_email == email:
+                continue
+            for c in client_list:
+                if c.get("shared_with") == email:
+                    c["shared_with"] = None
+    elif user["role"] == "therapist":
+        # The therapist's clients have no owner anymore; cascade-remove
+        # them from every psychiatrist's list so vanished clients don't
+        # linger in psychiatrist views.
+        owned_ids = {c["id"] for c in CLIENTS.get(email, [])}
+        for other_email, client_list in CLIENTS.items():
+            if other_email == email:
+                continue
+            client_list[:] = [c for c in client_list if c["id"] not in owned_ids]
+
+    # Drop the deleted user's own CLIENTS entry (their owned clients if a
+    # therapist; their shared-copy view if a psychiatrist). Notes keyed by
+    # client_id are intentionally left in NOTES — unreachable but inert.
+    CLIENTS.pop(email, None)
+
     del USERS[email]
     return None

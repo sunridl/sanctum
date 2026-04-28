@@ -40,6 +40,12 @@ def psychiatrist_user():
     )
     response.raise_for_status()
 
+    # Capture a token at setup. Self-delete is required for teardown; if
+    # the test deleted the user mid-test, the token now returns 401 from
+    # the delete call, which httpx.delete swallows silently — cleanup is
+    # already accomplished.
+    token = login_and_get_token(email, password)
+
     user = {
         "email": email,
         "password": password,
@@ -49,7 +55,46 @@ def psychiatrist_user():
     }
     yield user
 
-    httpx.delete(f"{BASE_URL}/auth/users/{email}")
+    httpx.delete(
+        f"{BASE_URL}/auth/users/{email}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+
+@pytest.fixture
+def second_psychiatrist_user():
+    """A second, unrelated psychiatrist — used to verify the
+    one-psychiatrist-at-a-time invariant on share."""
+    email = f"psych2-{uuid.uuid4().hex[:8]}@test.sanctum.com"
+    password = "secret123"
+
+    response = httpx.post(
+        f"{BASE_URL}/auth/users",
+        json={
+            "email": email,
+            "password": password,
+            "role": "psychiatrist",
+            "first_name": "Sam",
+            "last_name": "TestSecondPsych",
+        },
+    )
+    response.raise_for_status()
+
+    token = login_and_get_token(email, password)
+
+    user = {
+        "email": email,
+        "password": password,
+        "role": "psychiatrist",
+        "first_name": "Sam",
+        "last_name": "TestSecondPsych",
+    }
+    yield user
+
+    httpx.delete(
+        f"{BASE_URL}/auth/users/{email}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
 
 
 @pytest.fixture
@@ -69,6 +114,8 @@ def therapist_user():
     )
     response.raise_for_status()
 
+    token = login_and_get_token(email, password)
+
     user = {
         "email": email,
         "password": password,
@@ -78,7 +125,10 @@ def therapist_user():
     }
     yield user
 
-    httpx.delete(f"{BASE_URL}/auth/users/{email}")
+    httpx.delete(
+        f"{BASE_URL}/auth/users/{email}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
 
 
 @pytest.fixture
@@ -100,6 +150,8 @@ def second_therapist_user():
     )
     response.raise_for_status()
 
+    token = login_and_get_token(email, password)
+
     user = {
         "email": email,
         "password": password,
@@ -109,7 +161,10 @@ def second_therapist_user():
     }
     yield user
 
-    httpx.delete(f"{BASE_URL}/auth/users/{email}")
+    httpx.delete(
+        f"{BASE_URL}/auth/users/{email}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
 
 
 # ---------------------------------------------------------------------------

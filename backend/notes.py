@@ -29,11 +29,14 @@ def _user_owns_client(user: dict, client_id: int) -> bool:
 
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    # NOTE: duplicated with clients.py / auth.py — refactor candidate.
     try:
         payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid token")
+    if not USERS.get(payload.get("sub")):
+        raise HTTPException(status_code=401, detail="User no longer exists")
+    return payload
 
 
 class NoteCreate(BaseModel):

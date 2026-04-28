@@ -9,11 +9,20 @@ export default function DashboardPage() {
   const [clients, setClients] = useState([])
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
+  const [userDeleted, setUserDeleted] = useState(false)
 
   async function loadClients() {
     const r = await fetch('http://localhost:8000/clients/', {
       headers: { Authorization: `Bearer ${session.token}` },
     })
+    if (r.status === 401) {
+      // The token decoded fine, but the user no longer exists in USERS.
+      // Show the deletion message on this page rather than redirecting —
+      // answers the user's question ("why don't I see my clients?") in
+      // the place they were expecting to see them.
+      setUserDeleted(true)
+      return
+    }
     setClients(await r.json())
   }
 
@@ -41,6 +50,33 @@ export default function DashboardPage() {
   function handleLogout() {
     logout()
     navigate('/')
+  }
+
+  function handleSignUpAgain() {
+    logout()
+    navigate('/')
+  }
+
+  if (userDeleted) {
+    return (
+      <div
+        data-testid="user-deleted-block"
+        style={{ maxWidth: 600, margin: '100px auto', fontFamily: 'sans-serif' }}
+      >
+        <h1>🖤 Sanctum</h1>
+        <p data-testid="user-deleted-message">
+          Your user was deleted. Sign up again to continue.
+        </p>
+        <button
+          data-testid="user-deleted-signup-button"
+          type="button"
+          onClick={handleSignUpAgain}
+          style={{ padding: 8 }}
+        >
+          Sign up again
+        </button>
+      </div>
+    )
   }
 
   return (

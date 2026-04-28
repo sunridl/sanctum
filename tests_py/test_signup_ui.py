@@ -19,6 +19,21 @@ def _unique_email() -> str:
     return f"signup-ui-{uuid.uuid4().hex[:8]}@test.sanctum.com"
 
 
+def _cleanup(email: str, password: str = "secret123") -> None:
+    """Best-effort self-delete — login + auth'd DELETE. Silently absorbs
+    failures so cleanup never breaks a test that already passed."""
+    login = httpx.post(
+        f"{BASE_URL}/auth/login",
+        json={"email": email, "password": password},
+    )
+    if login.status_code == 200:
+        token = login.json()["access_token"]
+        httpx.delete(
+            f"{BASE_URL}/auth/users/{email}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+
 def test_new_therapist_can_sign_up_and_lands_on_dashboard(page: Page):
     email = _unique_email()
     try:
@@ -38,7 +53,7 @@ def test_new_therapist_can_sign_up_and_lands_on_dashboard(page: Page):
         # Therapist sees the add-client form; psychiatrist would not.
         expect(page.get_by_test_id("add-client-form")).to_be_visible()
     finally:
-        httpx.delete(f"{BASE_URL}/auth/users/{email}")
+        _cleanup(email)
 
 
 def test_logout_after_signup_returns_to_login_form(page: Page):
@@ -65,7 +80,7 @@ def test_logout_after_signup_returns_to_login_form(page: Page):
         expect(login.submit_button).to_be_visible()
         expect(page.get_by_test_id("signup-form")).not_to_be_visible()
     finally:
-        httpx.delete(f"{BASE_URL}/auth/users/{email}")
+        _cleanup(email)
 
 
 def test_signup_with_existing_email_shows_error(page: Page, therapist_user):

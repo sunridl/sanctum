@@ -22,9 +22,20 @@ def _unique_email() -> str:
     return f"signup-{uuid.uuid4().hex[:8]}@test.sanctum.com"
 
 
-def _cleanup(email: str) -> None:
-    """Best-effort delete via the test admin endpoint — no assertions."""
-    httpx.delete(f"{BASE_URL}/auth/users/{email}")
+def _cleanup(email: str, password: str = "secret123") -> None:
+    """Best-effort delete — login, then self-delete with the user's token.
+    Silently absorbs failures (user may not exist, or test may have used
+    a different password). Cleanup, not an assertion."""
+    login = httpx.post(
+        f"{BASE_URL}/auth/login",
+        json={"email": email, "password": password},
+    )
+    if login.status_code == 200:
+        token = login.json()["access_token"]
+        httpx.delete(
+            f"{BASE_URL}/auth/users/{email}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
 
 
 def test_signup_happy_path_returns_token_and_profile():
