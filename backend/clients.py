@@ -1,12 +1,20 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
-from pydantic import BaseModel
+from pydantic import BaseModel, StringConstraints
 from auth import USERS
 
+# Strips leading/trailing whitespace, then requires at least 1 char.
+# Catches both "" and "   " in one declaration; stored value is stripped
+# so we don't persist surprise whitespace.
+NonEmptyStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
+
+
 class ClientCreate(BaseModel):
-    first_name: str
-    last_name: str
+    first_name: NonEmptyStr
+    last_name: NonEmptyStr
 
 
 router = APIRouter(prefix="/clients")

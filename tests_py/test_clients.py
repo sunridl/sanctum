@@ -6,6 +6,7 @@ for notes, in test_notes.py.
 """
 
 import httpx
+import pytest
 
 from conftest import BASE_URL, login_and_get_token
 
@@ -234,3 +235,32 @@ def test_get_clients_returns_only_shared_for_psychiatrist(
         f"{BASE_URL}/clients/", headers=second_psych_headers
     ).json()
     assert all(c["id"] != shared_client_id for c in second_view)
+
+
+# ---------------------------------------------------------------------------
+# Input validation — backend must reject empty / whitespace-only names.
+# Frontend has .trim() guards, but the API mustn't trust client-side
+# checks (defense in depth — same principle as our role guards).
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "field,value,reason",
+    [
+        ("first_name", "", "empty first name"),
+        ("first_name", "   ", "whitespace-only first name"),
+        ("last_name", "", "empty last name"),
+        ("last_name", "   ", "whitespace-only last name"),
+    ],
+)
+def test_create_client_rejects_invalid_input_with_422(
+    field, value, reason, therapist_user
+):
+    """An empty or whitespace-only name produces a domain-meaningless
+    record (UI renders blank rows). Backend rejects with 422 — Pydantic's
+    standard validation error response."""
+    headers = _therapist_headers(therapist_user)
+    payload = {"first_name": "Valid", "last_name": "Name"}
+    payload[field] = value
+
+    response = httpx.post(f"{BASE_URL}/clients/", json=payload, headers=headers)
+    assert response.status_code == 422, f"expected 422 for {reason}, got {response.status_code}"

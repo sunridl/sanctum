@@ -7,6 +7,7 @@ prevent ID enumeration (matches the codebase's anti-enumeration convention).
 """
 
 import httpx
+import pytest
 
 from conftest import BASE_URL, login_and_get_token
 
@@ -181,3 +182,29 @@ def test_get_notes_filters_private_notes_for_psychiatrist(
     assert "Approved for group therapy" in contents
     assert "Private clinical impression" not in contents
     assert all(not n["is_private"] for n in visible)
+
+
+# ---------------------------------------------------------------------------
+# Input validation — empty / whitespace-only note content is meaningless
+# clinically. Backend must reject (defense in depth past the UI's trim).
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "value,reason",
+    [
+        ("", "empty content"),
+        ("   ", "whitespace-only content"),
+    ],
+)
+def test_create_note_rejects_invalid_content_with_422(
+    value, reason, therapist_user, therapist_client
+):
+    token = login_and_get_token(therapist_user["email"], therapist_user["password"])
+    headers = {"Authorization": f"Bearer {token}"}
+
+    response = httpx.post(
+        f"{BASE_URL}/clients/{therapist_client['id']}/notes",
+        json={"content": value, "is_private": True},
+        headers=headers,
+    )
+    assert response.status_code == 422, f"expected 422 for {reason}, got {response.status_code}"

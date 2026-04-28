@@ -1,9 +1,16 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel
+from pydantic import BaseModel, StringConstraints
 from jose import jwt, JWTError
 from auth import USERS
 from clients import CLIENTS
+
+# Strips whitespace + requires non-empty. Same pattern as clients.py
+# (the duplication is acceptable for now; if a third use site appears,
+# move to a shared module).
+NonEmptyStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 router = APIRouter(prefix="/clients")
 
@@ -40,7 +47,7 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 
 
 class NoteCreate(BaseModel):
-    content: str
+    content: NonEmptyStr
     is_private: bool = True
 
 
