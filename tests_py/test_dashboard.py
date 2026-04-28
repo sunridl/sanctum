@@ -3,6 +3,26 @@ from pages.dashboard_page import DashboardPage
 from playwright.sync_api import Page, expect
 
 
+def test_psychiatrist_can_log_in(page, psychiatrist_user):
+    page.goto("http://localhost:5173/")
+
+    page.get_by_placeholder("Email").fill(psychiatrist_user["email"])
+    page.get_by_placeholder("Password").fill(psychiatrist_user["password"])
+    page.get_by_role("button", name="Login").click()
+
+    expect(page.get_by_test_id("role-label")).to_have_text("psychiatrist")
+
+
+def test_therapist_can_log_in(page, therapist_user):
+    page.goto("http://localhost:5173/")
+
+    page.get_by_placeholder("Email").fill(therapist_user["email"])
+    page.get_by_placeholder("Password").fill(therapist_user["password"])
+    page.get_by_role("button", name="Login").click()
+
+    expect(page.get_by_test_id("role-label")).to_have_text("therapist")
+
+
 def test_therapist_can_log_in_and_see_their_client(
     page: Page, therapist_user, therapist_client
 ):
@@ -47,3 +67,28 @@ def test_psychiatrist_sees_only_clients_shared_with_them(
 
     expect(dashboard.role_label).to_have_text("psychiatrist")
     expect(dashboard.client_list).to_contain_text(shared_client["first_name"])
+
+
+def test_psychiatrist_sees_exactly_the_clients_shared_with_them(
+    page, psychiatrist_user, client_shared_with_psych
+):
+    # Act: log in as the psychiatrist
+    page.goto("http://localhost:5173/")
+    page.get_by_placeholder("Email").fill(psychiatrist_user["email"])
+    page.get_by_placeholder("Password").fill(psychiatrist_user["password"])
+    page.get_by_role("button", name="Login").click()
+
+    # Wait for the dashboard to actually render the list
+    expect(page.get_by_test_id("client-list")).to_be_visible()
+
+    # Assert: the dashboard shows EXACTLY the client that was shared
+    expected_client_id = str(client_shared_with_psych["client"]["id"])
+
+    rows = page.get_by_test_id("client-row")
+    expect(rows).to_have_count(1)
+
+    visible_ids = [row.get_attribute("data-client-id") for row in rows.all()]
+    assert visible_ids == [expected_client_id], (
+        f"Expected psychiatrist to see exactly [{expected_client_id}], "
+        f"but saw {visible_ids}"
+    )

@@ -377,3 +377,43 @@ def test_lookup_unauthenticated_returns_401():
     )
     # No bearer token — auth dependency rejects before role check
     assert response.status_code in (401, 403)
+
+
+# ---------------------------------------------------------------------------
+# Cross-tenant IDOR negatives — share endpoint must reject attempts to
+# share clients the caller doesn't own. Anti-enumeration: 404 hides the
+# fact that the client exists.
+# ---------------------------------------------------------------------------
+
+def test_share_with_unknown_email_returns_404(therapist_user, therapist_client):
+    """Sharing with an email that isn't a registered psychiatrist must fail
+    cleanly with 404 — not silently succeed."""
+    token = login_and_get_token(therapist_user["email"], therapist_user["password"])
+    headers = {"Authorization": f"Bearer {token}"}
+
+    response = httpx.post(
+        f"{BASE_URL}/clients/{therapist_client['id']}/share",
+        json={"psychiatrist_email": "ghost@nowhere.com"},
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+
+
+def test_therapist_cannot_share_other_therapists_client(
+    therapist_user, therapist_client, second_therapist_user, psychiatrist_user
+):
+    """Maria must not be able to share Sarah's client, even with a real
+    psychiatrist. Endpoint must hide existence with 404."""
+    maria_token = login_and_get_token(
+        second_therapist_user["email"], second_therapist_user["password"]
+    )
+    headers = {"Authorization": f"Bearer {maria_token}"}
+
+    response = httpx.post(
+        f"{BASE_URL}/clients/{therapist_client['id']}/share",
+        json={"psychiatrist_email": psychiatrist_user["email"]},
+        headers=headers,
+    )
+
+    assert response.status_code == 404

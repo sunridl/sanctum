@@ -1,9 +1,9 @@
 """API tests for the notes endpoints.
 
-Note creation, listing, and the role-based filter for private notes are
-already covered indirectly by the IDOR negative tests in test_smoke.py.
-This file owns invariants specific to the notes domain that aren't
-authorization-cross-tenant in nature.
+Covers role/visibility invariants on the notes endpoints AND cross-tenant
+IDOR negatives — a therapist must not be able to read or write notes on
+another therapist's client. Hides existence with 404 rather than 403 to
+prevent ID enumeration (matches the codebase's anti-enumeration convention).
 """
 
 import httpx
@@ -55,3 +55,45 @@ def test_psychiatrist_can_create_public_note(client_shared_with_psych):
     assert response.status_code == 200
     assert response.json()["is_private"] is False
     assert response.json()["role"] == "psychiatrist"
+
+
+# ---------------------------------------------------------------------------
+# Cross-tenant IDOR negatives — one therapist must not read or write notes
+# on another therapist's client.
+# ---------------------------------------------------------------------------
+
+def test_therapist_cannot_read_other_therapists_client_notes(
+    therapist_user, therapist_client, second_therapist_user
+):
+    """Maria (second therapist) must not be able to read notes on Sarah's
+    client. Endpoint hides existence with 404 to prevent object enumeration."""
+    maria_token = login_and_get_token(
+        second_therapist_user["email"], second_therapist_user["password"]
+    )
+    headers = {"Authorization": f"Bearer {maria_token}"}
+
+    response = httpx.get(
+        f"{BASE_URL}/clients/{therapist_client['id']}/notes",
+        headers=headers,
+    )
+
+    assert response.status_code == 404
+
+
+def test_therapist_cannot_create_notes_on_other_therapists_client(
+    therapist_user, therapist_client, second_therapist_user
+):
+    """Maria (second therapist) must not be able to create notes on Sarah's
+    client. Endpoint hides existence with 404 to prevent object enumeration."""
+    maria_token = login_and_get_token(
+        second_therapist_user["email"], second_therapist_user["password"]
+    )
+    headers = {"Authorization": f"Bearer {maria_token}"}
+
+    response = httpx.post(
+        f"{BASE_URL}/clients/{therapist_client['id']}/notes",
+        json={"content": "Second therapist's sneaky note", "is_private": True},
+        headers=headers,
+    )
+
+    assert response.status_code == 404
