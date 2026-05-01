@@ -1,0 +1,12 @@
+{
+  "name": "sanctum-tests-appium",
+  "private": true,
+  "description": "Appium server (project-local) for the Sanctum iOS app E2E suite. The Python tests live alongside under tests/, run via pytest with backend/.venv.",
+  "scripts": {
+    "appium": "appium",
+    "drivers": "appium driver list --installed"
+  },
+  "devDependencies": {
+    "appium": "^3.0.0-rc.2"
+  }
+}
