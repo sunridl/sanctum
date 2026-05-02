@@ -15,14 +15,14 @@ import uuid
 import httpx
 import pytest
 
-from conftest import BASE_URL
+from conftest import BASE_URL, _TEST_PASSWORD
 
 
 def _unique_email() -> str:
     return f"signup-{uuid.uuid4().hex[:8]}@test.sanctum.com"
 
 
-def _cleanup(email: str, password: str = "secret123") -> None:
+def _cleanup(email: str, password: str = _TEST_PASSWORD) -> None:
     """Best-effort delete — login, then self-delete with the user's token.
     Silently absorbs failures (user may not exist, or test may have used
     a different password). Cleanup, not an assertion."""
@@ -45,7 +45,7 @@ def test_signup_happy_path_returns_token_and_profile():
             f"{BASE_URL}/auth/signup",
             json={
                 "email": email,
-                "password": "secret123",
+                "password": _TEST_PASSWORD,
                 "first_name": "Ada",
                 "last_name": "Lovelace",
                 "role": "therapist",
@@ -69,7 +69,7 @@ def test_signup_then_login_with_same_credentials():
     """A user who just signed up must be able to log in immediately —
     catches password-hashing regressions end-to-end."""
     email = _unique_email()
-    password = "secret123"
+    password = _TEST_PASSWORD
     try:
         signup = httpx.post(
             f"{BASE_URL}/auth/signup",
@@ -97,7 +97,7 @@ def test_signup_duplicate_email_returns_409():
     email = _unique_email()
     payload = {
         "email": email,
-        "password": "secret123",
+        "password": _TEST_PASSWORD,
         "first_name": "Ada",
         "last_name": "Lovelace",
         "role": "therapist",
@@ -125,7 +125,7 @@ def test_signup_duplicate_email_returns_409():
 def test_signup_rejects_invalid_input_with_422(field, value, reason):
     payload = {
         "email": _unique_email(),
-        "password": "secret123",
+        "password": _TEST_PASSWORD,
         "first_name": "Ada",
         "last_name": "Lovelace",
         "role": "therapist",

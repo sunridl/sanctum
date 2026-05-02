@@ -10,7 +10,7 @@ import uuid
 import httpx
 from playwright.sync_api import Page, expect
 
-from conftest import BASE_URL
+from conftest import BASE_URL, _TEST_PASSWORD
 from pages.dashboard_page import DashboardPage
 from pages.login_page import LoginPage
 
@@ -19,7 +19,7 @@ def _unique_email() -> str:
     return f"signup-ui-{uuid.uuid4().hex[:8]}@test.sanctum.com"
 
 
-def _cleanup(email: str, password: str = "secret123") -> None:
+def _cleanup(email: str, password: str = _TEST_PASSWORD) -> None:
     """Best-effort self-delete — login + auth'd DELETE. Silently absorbs
     failures so cleanup never breaks a test that already passed."""
     login = httpx.post(
@@ -41,7 +41,7 @@ def test_new_therapist_can_sign_up_and_lands_on_dashboard(page: Page):
         login.goto()
         login.sign_up_as(
             email=email,
-            password="secret123",
+            password=_TEST_PASSWORD,
             first_name="Ada",
             last_name="Lovelace",
             role="therapist",
@@ -66,7 +66,7 @@ def test_logout_after_signup_returns_to_login_form(page: Page):
         login.goto()
         login.sign_up_as(
             email=email,
-            password="secret123",
+            password=_TEST_PASSWORD,
             first_name="Ada",
             last_name="Lovelace",
             role="therapist",
@@ -91,7 +91,7 @@ def test_signup_with_existing_email_shows_error(page: Page, therapist_user):
     login.goto()
     login.sign_up_as(
         email=therapist_user["email"],  # already exists from the fixture
-        password="secret123",
+        password=_TEST_PASSWORD,
         first_name="Imposter",
         last_name="User",
         role="therapist",

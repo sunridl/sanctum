@@ -1,8 +1,16 @@
+import secrets
 import uuid
+
 import httpx
 import pytest
 
 BASE_URL = "http://localhost:8000"
+
+# Single random password used across all per-test users in this session.
+# Tests don't depend on a specific value — the password just needs to
+# satisfy the backend's >=8 char rule. Generating instead of hardcoding
+# keeps no recognizable credentials in the repo.
+_TEST_PASSWORD = secrets.token_urlsafe(16)
 
 
 # ---------------------------------------------------------------------------
@@ -26,7 +34,7 @@ def login_and_get_token(email: str, password: str) -> str:
 @pytest.fixture
 def psychiatrist_user():
     email = f"psych-{uuid.uuid4().hex[:8]}@test.sanctum.com"
-    password = "secret123"
+    password = _TEST_PASSWORD
 
     response = httpx.post(
         f"{BASE_URL}/auth/users",
@@ -66,7 +74,7 @@ def second_psychiatrist_user():
     """A second, unrelated psychiatrist — used to verify the
     one-psychiatrist-at-a-time invariant on share."""
     email = f"psych2-{uuid.uuid4().hex[:8]}@test.sanctum.com"
-    password = "secret123"
+    password = _TEST_PASSWORD
 
     response = httpx.post(
         f"{BASE_URL}/auth/users",
@@ -100,7 +108,7 @@ def second_psychiatrist_user():
 @pytest.fixture
 def therapist_user():
     email = f"therapist-{uuid.uuid4().hex[:8]}@test.sanctum.com"
-    password = "secret123"
+    password = _TEST_PASSWORD
 
     response = httpx.post(
         f"{BASE_URL}/auth/users",
@@ -136,7 +144,7 @@ def second_therapist_user():
     """A second, unrelated therapist — used to verify that one therapist
     cannot access another therapist's clients or notes."""
     email = f"therapist2-{uuid.uuid4().hex[:8]}@test.sanctum.com"
-    password = "secret123"
+    password = _TEST_PASSWORD
 
     response = httpx.post(
         f"{BASE_URL}/auth/users",

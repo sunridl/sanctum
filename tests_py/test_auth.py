@@ -12,7 +12,7 @@ import uuid
 
 import httpx
 
-from conftest import BASE_URL, login_and_get_token
+from conftest import BASE_URL, _TEST_PASSWORD, login_and_get_token
 
 
 def test_deleted_users_token_returns_401_on_clients_endpoint():
@@ -22,7 +22,7 @@ def test_deleted_users_token_returns_401_on_clients_endpoint():
     401. Without this guard, the deleted user can still see and modify
     their orphaned client list."""
     email = f"deleted-user-{uuid.uuid4().hex[:8]}@test.sanctum.com"
-    password = "secret123"
+    password = _TEST_PASSWORD
 
     # Create the user
     create = httpx.post(
