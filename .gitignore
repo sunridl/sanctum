@@ -216,3 +216,7 @@ DerivedData/
 
 # Node (Appium server is npm-installed locally under tests_appium/)
 node_modules/
+
+# Playwright run artifacts
+allure-results/
+test-results/
