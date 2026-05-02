@@ -13,6 +13,7 @@ import os
 import uuid
 
 import pytest
+import requests
 from appium import webdriver
 from appium.options.ios import XCUITestOptions
 
@@ -65,7 +66,41 @@ def driver():
 
 
 # ---------------------------------------------------------------------------
-# Backend-state fixtures
+# Session-scoped account setup
+# ---------------------------------------------------------------------------
+# Backend USERS is empty by design — no demo accounts in source. This
+# autouse session fixture creates the therapist + psychiatrist accounts
+# the suite needs, then deletes them when the session ends. POST
+# /auth/users returns 409 if a previous session left them in place
+# (in-memory backend usually wipes between runs, but be defensive).
+
+
+@pytest.fixture(scope="session", autouse=True)
+def seed_test_accounts():
+    accounts = [
+        (api_helpers.THERAPIST_EMAIL, api_helpers.THERAPIST_PASSWORD,
+         "therapist", "Sarah", "Hill"),
+        (api_helpers.PSYCH_EMAIL, api_helpers.PSYCH_PASSWORD,
+         "psychiatrist", "Pat", "Chen"),
+    ]
+    for email, password, role, first_name, last_name in accounts:
+        requests.post(
+            f"{api_helpers.BACKEND_URL}/auth/users",
+            json={
+                "email": email, "password": password, "role": role,
+                "first_name": first_name, "last_name": last_name,
+            },
+            timeout=api_helpers.TIMEOUT,
+        )
+
+    yield
+
+    for email, password, *_ in accounts:
+        api_helpers.delete_user(email, password)
+
+
+# ---------------------------------------------------------------------------
+# Per-test backend-state fixtures
 # ---------------------------------------------------------------------------
 # These talk to the FastAPI backend directly so tests don't depend on which
 # users/clients happen to be in the seed data. Each test that needs a
