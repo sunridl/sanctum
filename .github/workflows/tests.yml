@@ -46,9 +46,6 @@ jobs:
       - name: Install Playwright browsers
         run: playwright install chromium --with-deps
 
-      - name: Run API tests (no frontend needed)
-        run: pytest tests_py/ --ignore-glob='*_ui.py' -v
-
       - name: Build and start frontend
         run: |
           cd frontend
@@ -62,8 +59,8 @@ jobs:
           echo "frontend never became ready"
           exit 1
 
-      - name: Run Playwright UI tests (Python)
-        run: pytest tests_py/ -k '_ui' -v
+      - name: Run pytest suite (API + Playwright UI)
+        run: pytest tests_py/ -v
 
       - name: Install Playwright JS suite
         run: |
