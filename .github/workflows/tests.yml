@@ -3,6 +3,7 @@ name: Sanctum Tests
 on:
   push:
     branches: [main]
+  pull_request:
 
 jobs:
   test:
@@ -11,38 +12,68 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Start backend
-        run: |
-          cd backend
-          docker build -t sanctum-backend .
-          docker run -d -p 8000:8000 sanctum-backend
+      - uses: actions/setup-python@v5
+        with:
+          python-version-file: .python-version
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install frontend deps
+      - name: Build and start backend
+        env:
+          SANCTUM_SECRET_KEY: ${{ secrets.SANCTUM_SECRET_KEY }}
+        run: |
+          cd backend
+          docker build -t sanctum-backend .
+          docker run -d -p 8000:8000 \
+            -e SANCTUM_SECRET_KEY="$SANCTUM_SECRET_KEY" \
+            --name backend sanctum-backend
+
+      - name: Wait for backend
+        run: |
+          for i in {1..30}; do
+            curl -sf http://localhost:8000/docs > /dev/null && exit 0
+            sleep 1
+          done
+          echo "backend never became ready"
+          docker logs backend
+          exit 1
+
+      - name: Install Python deps
+        run: pip install -r backend/requirements.txt
+
+      - name: Install Playwright browsers
+        run: playwright install chromium --with-deps
+
+      - name: Run API tests (no frontend needed)
+        run: pytest tests_py/ --ignore-glob='*_ui.py' -v
+
+      - name: Build and start frontend
         run: |
           cd frontend
           npm install
+          npm run build
+          npm run preview -- --port 5173 --host 0.0.0.0 &
+          for i in {1..20}; do
+            curl -sf http://localhost:5173/ > /dev/null && exit 0
+            sleep 1
+          done
+          echo "frontend never became ready"
+          exit 1
 
-      - name: Start frontend
-        run: |
-          cd frontend
-          npm run dev &
-          sleep 3
+      - name: Run Playwright UI tests (Python)
+        run: pytest tests_py/ -k '_ui' -v
 
-      - name: Install Playwright
+      - name: Install Playwright JS suite
         run: |
           cd tests
           npm install
-          npx playwright install chromium --with-deps
 
-      - name: Run tests
+      - name: Run Playwright tests (JS)
         run: |
           cd tests
-          npx playwright test tests.spec.js
+          npx playwright test
 
       - name: Upload Allure results
         if: always()
