@@ -1,7 +1,0 @@
-# Includes everything from requirements.txt (runtime deps)
--r requirements.txt
-
-# Test tooling — top-level only; pip resolves transitive deps
-pytest==8.4.2
-playwright==1.58.0
-pytest-playwright==0.7.1
