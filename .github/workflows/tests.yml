@@ -5,24 +5,18 @@ on:
     branches: [main]
   pull_request:
 
-env:
-  # Opt every JS action (checkout, setup-python, setup-node, upload-artifact)
-  # into the Node 24 runtime. GitHub will force this anyway on 2026-06-02;
-  # opting in now silences the deprecation warning.
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
 jobs:
   test:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version-file: .python-version
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
 
@@ -81,7 +75,7 @@ jobs:
 
       - name: Upload Allure results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: allure-results
           path: tests/allure-results
