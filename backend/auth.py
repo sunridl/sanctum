@@ -1,3 +1,5 @@
+import os
+import secrets
 from enum import Enum
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -8,7 +10,12 @@ from passlib.context import CryptContext
 
 router = APIRouter(prefix="/auth")
 
-SECRET_KEY = "sanctum-secret-do-not-share"
+# Source the JWT signing key from the environment so the secret never
+# lives in the repo. Fall back to a per-process random value so dev/test
+# runs work without configuration — but every restart invalidates issued
+# tokens, which is the right "no env, no persistence" default. Set
+# SANCTUM_SECRET_KEY in any deployed environment.
+SECRET_KEY = os.environ.get("SANCTUM_SECRET_KEY") or secrets.token_urlsafe(32)
 ALGORITHM = "HS256"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -19,20 +26,10 @@ class Role(str, Enum):
     psychiatrist = "psychiatrist"
 
 
-USERS = {
-    "therapist@sanctum.com": {
-        "password": pwd_context.hash("secret123"),
-        "role": "therapist",
-        "first_name": "Sarah",
-        "last_name": "Hill",
-    },
-    "psych@sanctum.com": {
-        "password": pwd_context.hash("secret123"),
-        "role": "psychiatrist",
-        "first_name": "Pat",
-        "last_name": "Chen",
-    },
-}
+# In-memory user store. Empty by default — accounts are created via the
+# signup endpoint or the /auth/users test-helper endpoint. Test suites
+# bring up the users they need in a session fixture and clean up after.
+USERS: dict[str, dict] = {}
 
 class LoginRequest(BaseModel):
     email: str

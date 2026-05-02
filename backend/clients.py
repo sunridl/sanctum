@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt, JWTError
 from pydantic import BaseModel, StringConstraints
-from auth import USERS
+from auth import USERS, SECRET_KEY, ALGORITHM
 
 # Strips leading/trailing whitespace, then requires at least 1 char.
 # Catches both "" and "   " in one declaration; stored value is stripped
@@ -19,17 +19,8 @@ class ClientCreate(BaseModel):
 
 router = APIRouter(prefix="/clients")
 
-SECRET_KEY = "sanctum-secret-do-not-share"
-ALGORITHM = "HS256"
-
-CLIENTS: dict[str, list] = {
-    "therapist@sanctum.com": [
-        {"id": 1, "first_name": "Carol", "last_name": "Smith", "shared_with": None},
-        {"id": 2, "first_name": "David", "last_name": "Jones", "shared_with": None},
-    ],
-    "psych@sanctum.com": [],
-}
-client_id_counter = 3
+CLIENTS: dict[str, list] = {}
+client_id_counter = 1
 
 security = HTTPBearer()
 

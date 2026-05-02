@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, StringConstraints
 from jose import jwt, JWTError
-from auth import USERS
+from auth import USERS, SECRET_KEY, ALGORITHM
 from clients import CLIENTS
 
 # Strips whitespace + requires non-empty. Same pattern as clients.py
@@ -14,17 +14,10 @@ NonEmptyStr = Annotated[str, StringConstraints(strip_whitespace=True, min_length
 
 router = APIRouter(prefix="/clients")
 
-SECRET_KEY = "sanctum-secret-do-not-share"
-ALGORITHM = "HS256"
 security = HTTPBearer()
 note_id_counter = 1
 
-NOTES: dict[int, list] = {
-    1: [
-        {"id": 1, "content": "Carol is making progress", "is_private": True, "author": "therapist@sanctum.com", "role": "therapist"},
-        {"id": 2, "content": "Carol approved for group therapy", "is_private": False, "author": "therapist@sanctum.com", "role": "therapist"},
-    ]
-}
+NOTES: dict[int, list] = {}
 
 def _user_owns_client(user: dict, client_id: int) -> bool:
     """True if the authenticated user has this client in their own list —
