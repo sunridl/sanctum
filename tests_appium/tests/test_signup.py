@@ -4,6 +4,7 @@ Each test creates a uniquely-emailed account so reruns don't fight over
 backend state, and a finalizer cleans the account up via the backend API
 to keep USERS from growing unboundedly across runs.
 """
+import secrets
 import uuid
 
 import pytest
@@ -20,7 +21,7 @@ def unique_email(request):
     # by Pydantic's EmailStr) refuses them with a 422. A normal-looking
     # fictional domain is the path of least resistance.
     email = f"test-{uuid.uuid4().hex[:8]}@sanctum-tests.io"
-    password = "secret123"
+    password = secrets.token_urlsafe(16)
 
     def cleanup():
         api_helpers.delete_user(email, password)

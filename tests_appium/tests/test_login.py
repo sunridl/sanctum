@@ -5,6 +5,7 @@ driver fixture, so order is irrelevant.
 """
 from pages.login_page import LoginPage
 from pages.clients_page import ClientsPage
+import api_helpers
 
 
 def test_login_screen_is_visible_on_launch(driver):
@@ -13,7 +14,7 @@ def test_login_screen_is_visible_on_launch(driver):
 
 
 def test_therapist_can_log_in_and_sees_clients_list(driver):
-    LoginPage(driver).login("therapist@sanctum.com", "secret123")
+    LoginPage(driver).login(api_helpers.THERAPIST_EMAIL, api_helpers.THERAPIST_PASSWORD)
 
     clients = ClientsPage(driver)
     assert clients.is_displayed(), "Therapist should land on the clients list"
@@ -21,7 +22,7 @@ def test_therapist_can_log_in_and_sees_clients_list(driver):
 
 
 def test_psychiatrist_lands_on_clients_list_without_add_button(driver):
-    LoginPage(driver).login("psych@sanctum.com", "secret123")
+    LoginPage(driver).login(api_helpers.PSYCH_EMAIL, api_helpers.PSYCH_PASSWORD)
 
     clients = ClientsPage(driver)
     assert clients.is_displayed()
@@ -30,7 +31,7 @@ def test_psychiatrist_lands_on_clients_list_without_add_button(driver):
 
 def test_login_with_bad_password_shows_error(driver):
     login = LoginPage(driver)
-    login.login("therapist@sanctum.com", "wrongpassword")
+    login.login(api_helpers.THERAPIST_EMAIL, "definitely-wrong-password")
 
     assert login.is_displayed(), "Should still be on the login screen"
     assert "Invalid credentials" in login.error_text()

@@ -6,6 +6,8 @@ couples them. These helpers hit the FastAPI backend directly so each
 test can start from a known state in milliseconds.
 """
 import os
+import secrets
+import uuid
 from typing import Optional
 
 import requests
@@ -13,11 +15,16 @@ import requests
 BACKEND_URL = os.environ.get("BACKEND_URL", "http://localhost:8000")
 TIMEOUT = 5
 
-# Seeded creds — also used by the iOS tests.
-THERAPIST_EMAIL = "therapist@sanctum.com"
-THERAPIST_PASSWORD = "secret123"
-PSYCH_EMAIL = "psych@sanctum.com"
-PSYCH_PASSWORD = "secret123"
+# Test credentials are generated per pytest session so they never appear
+# in the repo. The session-scoped fixture in conftest.py registers these
+# accounts at session start and deletes them at the end. Domain is a
+# fictional .io (not a reserved RFC-2606 TLD, which Pydantic's EmailStr
+# rejects).
+_RUN_SUFFIX = uuid.uuid4().hex[:8]
+THERAPIST_EMAIL = f"test-therapist-{_RUN_SUFFIX}@sanctum-tests.io"
+THERAPIST_PASSWORD = secrets.token_urlsafe(16)
+PSYCH_EMAIL = f"test-psych-{_RUN_SUFFIX}@sanctum-tests.io"
+PSYCH_PASSWORD = secrets.token_urlsafe(16)
 
 
 def get_token(email: str, password: str) -> str:
