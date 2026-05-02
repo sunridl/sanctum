@@ -202,9 +202,14 @@ def delete_user(email: str, caller: dict = Depends(_decode_token)):
                 continue
             client_list[:] = [c for c in client_list if c["id"] not in owned_ids]
 
+        # Cascade-clean notes for every deleted client so they don't sit
+        # orphaned in memory. Same lazy-import rationale as above.
+        from notes import NOTES
+        for cid in owned_ids:
+            NOTES.pop(cid, None)
+
     # Drop the deleted user's own CLIENTS entry (their owned clients if a
-    # therapist; their shared-copy view if a psychiatrist). Notes keyed by
-    # client_id are intentionally left in NOTES — unreachable but inert.
+    # therapist; their shared-copy view if a psychiatrist).
     CLIENTS.pop(email, None)
 
     del USERS[email]

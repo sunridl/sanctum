@@ -177,4 +177,9 @@ def delete_client(client_id: int, user: dict = Depends(get_current_user)):
     for clients_list in CLIENTS.values():
         clients_list[:] = [c for c in clients_list if c["id"] != client_id]
 
+    # Cascade-clean the notes for this client. Lazy import to avoid the
+    # circular dependency: notes.py already imports CLIENTS from here.
+    from notes import NOTES
+    NOTES.pop(client_id, None)
+
     return None
